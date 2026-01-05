@@ -1,0 +1,19 @@
+# Go
+/bin/
+/vendor/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# secrets / certificates
+server.key
+server.crt
+.env
+
+# build
+*.exe

@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gophkeeper
+      POSTGRES_USER: gophkeeper
+      POSTGRES_PASSWORD: gophkeeper
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gophkeeper -d gophkeeper"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
