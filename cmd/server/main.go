@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +22,8 @@ import (
 	"gophkeeper/internal/logger"
 	"gophkeeper/internal/repository/postgres"
 	"gophkeeper/internal/service"
+
+	"gophkeeper/internal/crypto/envelope"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
@@ -42,6 +46,9 @@ func run() error {
 	fs.String("log_level", "INFO", "log level (DEBUG, INFO, WARN, ERROR)")
 	fs.String("read_timeout", "5s", "read timeout")
 	fs.String("write_timeout", "5s", "write timeout")
+	fs.String("master_key", "", "master key for data encryption (base64)")
+	fs.String("tls_cert", "", "path to TLS certificate")
+	fs.String("tls_key", "", "path to TLS key")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return err
@@ -51,6 +58,13 @@ func run() error {
 	cfg, err := config.Load(fs)
 	if err != nil {
 		return err
+	}
+	if cfg.MasterKey == "" {
+		return fmt.Errorf("master_key is required")
+	}
+	enc, err := envelope.New(cfg.MasterKey)
+	if err != nil {
+		return fmt.Errorf("failed to init envelope encrypter: %w", err)
 	}
 
 	// --- logger ---
@@ -83,7 +97,7 @@ func run() error {
 
 	// --- services ---
 	authSvc := service.NewAuthService(storage, cfg.JWTSecret)
-	secSvc := service.NewSecretsService(storage)
+	secSvc := service.NewSecretsService(storage, enc)
 
 	// --- handlers ---
 	authH := handlers.NewAuthHandler(authSvc)
@@ -105,13 +119,27 @@ func run() error {
 		Handler:      router,
 		ReadTimeout:  rt,
 		WriteTimeout: wt,
+
+		// Отключаем HTTP/2 (Windows + curl + Chrome + self-signed TLS)
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
 	errCh := make(chan error, 1)
 
 	go func() {
 		logger.Log.Info("server started", zap.String("addr", cfg.Addr))
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+
+		var err error
+
+		if cfg.TLSCert != "" && cfg.TLSKey != "" {
+			logger.Log.Info("starting HTTPS server")
+			err = srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
+		} else {
+			logger.Log.Warn("starting HTTP server (TLS disabled)")
+			err = srv.ListenAndServe()
+		}
+
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()

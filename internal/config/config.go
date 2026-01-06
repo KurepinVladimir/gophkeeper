@@ -12,6 +12,9 @@ type ServerConfig struct {
 	Addr         string `mapstructure:"addr"`
 	DSN          string `mapstructure:"dsn"`
 	JWTSecret    string `mapstructure:"jwt_secret"`
+	MasterKey    string `mapstructure:"master_key"`
+	TLSCert      string `mapstructure:"tls_cert"`
+	TLSKey       string `mapstructure:"tls_key"`
 	ReadTimeout  string `mapstructure:"read_timeout"`
 	WriteTimeout string `mapstructure:"write_timeout"`
 }
@@ -41,6 +44,9 @@ func Load(flags *pflag.FlagSet) (ServerConfig, error) {
 	_ = v.BindPFlag("jwt_secret", flags.Lookup("jwt"))
 	_ = v.BindPFlag("read_timeout", flags.Lookup("read_timeout"))
 	_ = v.BindPFlag("write_timeout", flags.Lookup("write_timeout"))
+	_ = v.BindPFlag("master_key", flags.Lookup("master_key"))
+	_ = v.BindPFlag("tls_cert", flags.Lookup("tls_cert"))
+	_ = v.BindPFlag("tls_key", flags.Lookup("tls_key"))
 
 	var cfg ServerConfig
 	if err := v.Unmarshal(&cfg); err != nil {

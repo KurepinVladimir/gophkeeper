@@ -1,0 +1,2 @@
+ALTER TABLE secrets
+DROP CONSTRAINT secrets_encrypted_data_size_check;
