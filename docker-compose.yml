@@ -1,14 +1,22 @@
+version: "3.9"
+
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:15
+    container_name: gophkeeper
     environment:
-      POSTGRES_DB: gophkeeper
       POSTGRES_USER: gophkeeper
       POSTGRES_PASSWORD: gophkeeper
+      POSTGRES_DB: gophkeeper
     ports:
       - "5432:5432"
+    volumes:
+      - gophkeeper_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U gophkeeper -d gophkeeper"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  gophkeeper_pgdata:
