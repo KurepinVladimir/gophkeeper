@@ -1,3 +1,10 @@
+// Package config provides application configuration loading.
+// It supports configuration from files, environment variables, and command-line flags,
+// applying them in the following priority order:
+//
+//	file < environment variables < command-line flags
+//
+// Configuration is loaded using Viper and mapped into strongly typed structures.
 package config
 
 import (
@@ -7,7 +14,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ServerConfig holds server configuration.
+// ServerConfig defines all runtime configuration parameters of the server.
 type ServerConfig struct {
 	Addr         string `mapstructure:"addr"`
 	DSN          string `mapstructure:"dsn"`
@@ -19,26 +26,37 @@ type ServerConfig struct {
 	WriteTimeout string `mapstructure:"write_timeout"`
 }
 
-// Load reads config from file/env/flags (priority: file < env < flags).
+// Load loads application configuration into ServerConfig.
+// Configuration values are resolved in the following order:
+//
+//  1. Configuration file (optional)
+//  2. Environment variables
+//  3. Command-line flags
+//
+// The function returns an error if required configuration fields are missing
+// or if configuration cannot be unmarshaled.
 func Load(flags *pflag.FlagSet) (ServerConfig, error) {
 	v := viper.New()
+
+	// Configuration file settings.
 	v.SetConfigName("config")
 	v.SetConfigType("json")
 	v.AddConfigPath(".")
 	v.AddConfigPath("./configs")
 
-	// Defaults
+	// Default values.
 	v.SetDefault("addr", "127.0.0.1:8080")
 	v.SetDefault("read_timeout", "5s")
 	v.SetDefault("write_timeout", "5s")
 
-	// Env
+	// Environment variables.
 	v.SetEnvPrefix("GK")
 	v.AutomaticEnv()
 
-	_ = v.ReadInConfig() // optional
+	// Configuration file is optional.
+	_ = v.ReadInConfig()
 
-	// Bind flags
+	// Bind command-line flags.
 	_ = v.BindPFlag("addr", flags.Lookup("addr"))
 	_ = v.BindPFlag("dsn", flags.Lookup("dsn"))
 	_ = v.BindPFlag("jwt_secret", flags.Lookup("jwt"))
@@ -52,11 +70,14 @@ func Load(flags *pflag.FlagSet) (ServerConfig, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return ServerConfig{}, err
 	}
+
+	// Required configuration validation.
 	if cfg.DSN == "" {
 		return ServerConfig{}, fmt.Errorf("dsn is required")
 	}
 	if cfg.JWTSecret == "" {
 		return ServerConfig{}, fmt.Errorf("jwt_secret is required")
 	}
+
 	return cfg, nil
 }

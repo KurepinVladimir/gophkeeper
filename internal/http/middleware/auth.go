@@ -1,3 +1,6 @@
+// Package middleware contains HTTP middleware used by the server.
+// It provides request-level functionality such as authentication,
+// authorization, and propagation of user identity through context.
 package middleware
 
 import (
@@ -12,14 +15,20 @@ type ctxKey string
 
 const userIDKey ctxKey = "uid"
 
-// UserIDFromContext returns user id from request context.
+// UserIDFromContext extracts the authenticated user identifier
+// from the provided context. It returns the user ID and a boolean
+// indicating whether the value was present.
 func UserIDFromContext(ctx context.Context) (int64, bool) {
 	v := ctx.Value(userIDKey)
 	id, ok := v.(int64)
 	return id, ok
 }
 
-// Auth verifies Authorization: Bearer <token>.
+// Auth is an HTTP middleware that validates a JWT token from the
+// Authorization header. On successful validation, it extracts
+// the user identifier and injects it into the request context.
+//
+// Requests without a valid token are rejected with an HTTP 401 status.
 func Auth(jwtSecret string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

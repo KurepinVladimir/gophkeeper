@@ -1,3 +1,7 @@
+// Package service contains application business logic.
+// It implements core use cases such as user authentication
+// and secure management of encrypted secrets, independent
+// of transport and storage implementations.
 package service
 
 import (
@@ -10,13 +14,17 @@ import (
 	"gophkeeper/internal/repository"
 )
 
-// SecretsService implements operations on encrypted secrets.
+// SecretsService implements business logic for managing encrypted secrets.
+// It applies server-side envelope encryption before persisting data
+// and removes it when reading secrets from storage.
 type SecretsService struct {
 	repo      repository.SecretRepository
 	encrypter *envelope.Encrypter
 }
 
-// NewSecretsService creates SecretsService.
+// NewSecretsService creates a new SecretsService.
+// It requires a secrets repository for storage and an encrypter
+// used to apply server-side envelope encryption.
 func NewSecretsService(
 	repo repository.SecretRepository,
 	encrypter *envelope.Encrypter,
@@ -27,7 +35,9 @@ func NewSecretsService(
 	}
 }
 
-// Upsert stores or updates secret.
+// Upsert creates or updates a secret.
+// The method validates input, applies server-side envelope encryption,
+// updates versioning metadata, and persists the secret in storage.
 func (s *SecretsService) Upsert(ctx context.Context, sec *model.Secret) (*model.Secret, error) {
 	// 1. updated_at
 	if sec.UpdatedAt.IsZero() {
@@ -64,13 +74,15 @@ func (s *SecretsService) Upsert(ctx context.Context, sec *model.Secret) (*model.
 	return s.repo.Upsert(ctx, sec)
 }
 
-// List returns all secrets for user.
+// List returns all secrets metadata belonging to the specified user.
+// Encrypted payloads are not decrypted during listing.
 func (s *SecretsService) List(ctx context.Context, userID int64) ([]model.Secret, error) {
 	return s.repo.List(ctx, userID)
 }
 
-// Get returns secret by id.
-// Get returns secret by id.
+// Get retrieves a secret by its identifier.
+// The method removes server-side envelope encryption before returning
+// the encrypted payload to the client.
 func (s *SecretsService) Get(ctx context.Context, id, userID int64) (*model.Secret, error) {
 	sec, err := s.repo.Get(ctx, id, userID)
 	if err != nil {
@@ -99,7 +111,7 @@ func (s *SecretsService) Get(ctx context.Context, id, userID int64) (*model.Secr
 	return sec, nil
 }
 
-// Delete deletes secret.
+// Delete removes a secret belonging to the specified user.
 func (s *SecretsService) Delete(ctx context.Context, id, userID int64) error {
 	return s.repo.Delete(ctx, id, userID)
 }

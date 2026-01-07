@@ -1,3 +1,6 @@
+// Package handlers contains HTTP handlers for the GophKeeper server.
+// Handlers are responsible for request parsing, response formatting,
+// and delegating business logic to the service layer.
 package handlers
 
 import (
@@ -15,10 +18,14 @@ import (
 	"gophkeeper/internal/service"
 )
 
+// SecretsHandler handles HTTP requests for managing user secrets.
+// It provides endpoints for creating, retrieving, listing,
+// and deleting encrypted secrets.
 type SecretsHandler struct {
 	svc *service.SecretsService
 }
 
+// NewSecretsHandler creates a new SecretsHandler using the provided SecretsService.
 func NewSecretsHandler(svc *service.SecretsService) *SecretsHandler {
 	return &SecretsHandler{svc: svc}
 }
@@ -34,6 +41,9 @@ type upsertReq struct {
 	Deleted       bool   `json:"deleted"`
 }
 
+// Upsert handles creation or update of a secret.
+// It reads encrypted secret data from the request body
+// and delegates persistence to the secrets service.
 func (h *SecretsHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 	uid, ok := middleware.UserIDFromContext(r.Context())
 	if !ok {
@@ -80,6 +90,8 @@ func (h *SecretsHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"id": out.ID})
 }
 
+// List returns metadata for all secrets belonging to the authenticated user.
+// Encrypted payloads are not included in the response.
 func (h *SecretsHandler) List(w http.ResponseWriter, r *http.Request) {
 	uid, ok := middleware.UserIDFromContext(r.Context())
 	if !ok {
@@ -111,6 +123,9 @@ func (h *SecretsHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// Get retrieves a secret by its identifier.
+// The handler returns encrypted data with server-side
+// envelope encryption already removed.
 func (h *SecretsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	uid, ok := middleware.UserIDFromContext(r.Context())
 	if !ok {
@@ -141,6 +156,7 @@ func (h *SecretsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// Delete removes a secret belonging to the authenticated user.
 func (h *SecretsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	uid, ok := middleware.UserIDFromContext(r.Context())
 	if !ok {

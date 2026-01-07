@@ -1,3 +1,7 @@
+// Command server starts the GophKeeper HTTP API server.
+// The server provides user authentication, secure secret storage,
+// and synchronization functionality using PostgreSQL as storage
+// and JWT for authorization.
 package main
 
 import (
@@ -29,12 +33,28 @@ import (
 	"go.uber.org/zap"
 )
 
+// main is the entry point of the server application.
+// It delegates all initialization logic to run and
+// terminates the process on fatal startup errors.
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
 
+// run initializes and starts the HTTP server.
+// It performs the following steps:
+//
+//   - parses command-line flags
+//   - loads application configuration
+//   - initializes logging
+//   - establishes a database connection
+//   - configures repositories, services, and HTTP handlers
+//   - starts the HTTP or HTTPS server
+//   - handles graceful shutdown on system signals
+//
+// The function blocks until the server is stopped and
+// returns an error if startup or runtime failure occurs.
 func run() error {
 	// --- flags ---
 	fs := pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
@@ -62,6 +82,7 @@ func run() error {
 	if cfg.MasterKey == "" {
 		return fmt.Errorf("master_key is required")
 	}
+
 	enc, err := envelope.New(cfg.MasterKey)
 	if err != nil {
 		return fmt.Errorf("failed to init envelope encrypter: %w", err)
@@ -120,7 +141,7 @@ func run() error {
 		ReadTimeout:  rt,
 		WriteTimeout: wt,
 
-		// Отключаем HTTP/2 (Windows + curl + Chrome + self-signed TLS)
+		// Disable HTTP/2 for compatibility with self-signed TLS certificates.
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 

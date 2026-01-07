@@ -1,3 +1,7 @@
+// Package postgres provides PostgreSQL-based implementations of
+// repository interfaces used by the application.
+// It is responsible for persisting and retrieving users and secrets
+// using a relational database.
 package postgres
 
 import (
@@ -11,16 +15,20 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// Storage implements UserRepository and SecretRepository using PostgreSQL.
+// Storage implements UserRepository and SecretRepository
+// using PostgreSQL as the underlying storage.
 type Storage struct {
 	db *sql.DB
 }
 
-// New creates a new Postgres storage.
+// New creates a new PostgreSQL storage instance.
+// The provided database connection is used for all repository operations.
 func New(db *sql.DB) *Storage {
 	return &Storage{db: db}
 }
 
+// Create inserts a new user into the database.
+// The user ID and creation timestamp are populated after successful insertion.
 func (s *Storage) Create(ctx context.Context, user *model.User) error {
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO users (login, password_hash)
@@ -30,6 +38,8 @@ func (s *Storage) Create(ctx context.Context, user *model.User) error {
 	return row.Scan(&user.ID, &user.CreatedAt)
 }
 
+// GetByLogin retrieves a user by login.
+// It returns repository.ErrNotFound if the user does not exist.
 func (s *Storage) GetByLogin(ctx context.Context, login string) (*model.User, error) {
 	u := &model.User{}
 	err := s.db.QueryRowContext(ctx, `
@@ -46,6 +56,8 @@ func (s *Storage) GetByLogin(ctx context.Context, login string) (*model.User, er
 	return u, nil
 }
 
+// GetByID retrieves a user by identifier.
+// It returns repository.ErrNotFound if the user does not exist.
 func (s *Storage) GetByID(ctx context.Context, id int64) (*model.User, error) {
 	u := &model.User{}
 	err := s.db.QueryRowContext(ctx, `
@@ -62,8 +74,9 @@ func (s *Storage) GetByID(ctx context.Context, id int64) (*model.User, error) {
 	return u, nil
 }
 
-// Upsert inserts or updates a secret by id (if id > 0) and user_id.
-// For new secret, id may be 0.
+// Upsert inserts or updates a secret identified by its ID and user ID.
+// If the secret ID is zero, a new record is created.
+// If no rows are affected during update, repository.ErrNotFound is returned.
 func (s *Storage) Upsert(ctx context.Context, sec *model.Secret) (*model.Secret, error) {
 	if sec.ID == 0 {
 		row := s.db.QueryRowContext(ctx, `
@@ -92,6 +105,8 @@ func (s *Storage) Upsert(ctx context.Context, sec *model.Secret) (*model.Secret,
 	return sec, nil
 }
 
+// List returns all secrets belonging to the specified user.
+// Secrets are ordered by their identifier in ascending order.
 func (s *Storage) List(ctx context.Context, userID int64) ([]model.Secret, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, user_id, type, title, meta, encrypted_data, version, updated_at, deleted
@@ -108,7 +123,17 @@ func (s *Storage) List(ctx context.Context, userID int64) ([]model.Secret, error
 	for rows.Next() {
 		var sec model.Secret
 		var typ string
-		if err := rows.Scan(&sec.ID, &sec.UserID, &typ, &sec.Title, &sec.Meta, &sec.EncryptedData, &sec.Version, &sec.UpdatedAt, &sec.Deleted); err != nil {
+		if err := rows.Scan(
+			&sec.ID,
+			&sec.UserID,
+			&typ,
+			&sec.Title,
+			&sec.Meta,
+			&sec.EncryptedData,
+			&sec.Version,
+			&sec.UpdatedAt,
+			&sec.Deleted,
+		); err != nil {
 			return nil, err
 		}
 		sec.Type = model.SecretType(typ)
@@ -117,6 +142,8 @@ func (s *Storage) List(ctx context.Context, userID int64) ([]model.Secret, error
 	return out, rows.Err()
 }
 
+// Get retrieves a secret by its identifier and user identifier.
+// It returns repository.ErrNotFound if the secret does not exist.
 func (s *Storage) Get(ctx context.Context, id int64, userID int64) (*model.Secret, error) {
 	var sec model.Secret
 	var typ string
@@ -124,7 +151,17 @@ func (s *Storage) Get(ctx context.Context, id int64, userID int64) (*model.Secre
 		SELECT id, user_id, type, title, meta, encrypted_data, version, updated_at, deleted
 		FROM secrets
 		WHERE id = $1 AND user_id = $2
-	`, id, userID).Scan(&sec.ID, &sec.UserID, &typ, &sec.Title, &sec.Meta, &sec.EncryptedData, &sec.Version, &sec.UpdatedAt, &sec.Deleted)
+	`, id, userID).Scan(
+		&sec.ID,
+		&sec.UserID,
+		&typ,
+		&sec.Title,
+		&sec.Meta,
+		&sec.EncryptedData,
+		&sec.Version,
+		&sec.UpdatedAt,
+		&sec.Deleted,
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrNotFound
@@ -135,8 +172,13 @@ func (s *Storage) Get(ctx context.Context, id int64, userID int64) (*model.Secre
 	return &sec, nil
 }
 
+// Delete removes a secret identified by its ID and user ID.
+// If the secret does not exist, repository.ErrNotFound is returned.
 func (s *Storage) Delete(ctx context.Context, id int64, userID int64) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM secrets WHERE id=$1 AND user_id=$2`, id, userID)
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM secrets WHERE id=$1 AND user_id=$2`,
+		id, userID,
+	)
 	if err != nil {
 		return err
 	}
