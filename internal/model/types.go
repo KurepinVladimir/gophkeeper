@@ -23,13 +23,14 @@ const (
 
 // Secret is a server-side record. EncryptedData contains ciphertext produced by the client.
 type Secret struct {
-	ID            int64      `json:"id"`
-	UserID        int64      `json:"-"`
-	Type          SecretType `json:"type"`
-	Title         string     `json:"title"`
-	Meta          string     `json:"meta"`
-	EncryptedData []byte     `json:"encrypted_data"`
-	Version       int64      `json:"version"`
-	UpdatedAt     time.Time  `json:"updated_at"`
-	Deleted       bool       `json:"deleted"`
+	ID               int64      `json:"id"`
+	UserID           int64      `json:"-"`
+	Type             SecretType `json:"type"`
+	Title            string     `json:"title"`
+	Meta             string     `json:"meta"`
+	EncryptedData    []byte     `json:"encrypted_data"`
+	EncryptedDataKey []byte     `json:"-"`
+	Version          int64      `json:"version"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	Deleted          bool       `json:"deleted"`
 }

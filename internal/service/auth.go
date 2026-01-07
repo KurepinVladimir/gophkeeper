@@ -1,3 +1,7 @@
+// Package service contains application business logic.
+// It implements core use cases such as user authentication
+// and secure management of encrypted secrets, independent
+// of transport and storage implementations.
 package service
 
 import (
@@ -9,14 +13,18 @@ import (
 	"gophkeeper/internal/security"
 )
 
-// AuthService implements user registration/login.
+// AuthService provides user authentication and registration logic.
+// It is responsible for creating users, verifying credentials,
+// and issuing JWT tokens for authenticated sessions.
 type AuthService struct {
 	users     repository.UserRepository
 	jwtSecret string
 	jwtTTL    time.Duration
 }
 
-// NewAuthService creates AuthService.
+// NewAuthService creates a new AuthService.
+// It accepts a user repository for persistence and a JWT secret
+// used to sign authentication tokens.
 func NewAuthService(users repository.UserRepository, jwtSecret string) *AuthService {
 	return &AuthService{
 		users:     users,
@@ -25,7 +33,8 @@ func NewAuthService(users repository.UserRepository, jwtSecret string) *AuthServ
 	}
 }
 
-// Register creates a new user.
+// Register creates a new user with the provided login and password.
+// The password is securely hashed before being stored.
 func (a *AuthService) Register(ctx context.Context, login, password string) error {
 	hash, err := security.HashPassword(password)
 	if err != nil {
@@ -35,7 +44,9 @@ func (a *AuthService) Register(ctx context.Context, login, password string) erro
 	return a.users.Create(ctx, u)
 }
 
-// Login authenticates user and returns JWT.
+// Login authenticates a user by login and password.
+// On success, it returns a signed JWT token that can be used
+// for authorized requests.
 func (a *AuthService) Login(ctx context.Context, login, password string) (string, int64, error) {
 	u, err := a.users.GetByLogin(ctx, login)
 	if err != nil {

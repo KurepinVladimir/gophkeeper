@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"time"
 
@@ -14,7 +15,12 @@ type Client struct {
 func New(baseURL string) *Client {
 	c := resty.New().
 		SetBaseURL(baseURL).
-		SetTimeout(10 * time.Second)
+		SetTimeout(10 * time.Second).
+		// InsecureSkipVerify используется только для self-signed сертификатов в DEV
+		SetTLSClientConfig(&tls.Config{
+			InsecureSkipVerify: true, // DEV ONLY
+		})
+
 	return &Client{r: c}
 }
 
